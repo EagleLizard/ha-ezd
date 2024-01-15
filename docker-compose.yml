@@ -4,7 +4,10 @@ services:
     container_name: homeassistant
     image: "ghcr.io/home-assistant/home-assistant:stable"
     volumes:
-      - /home/pi/homeassistant_docker_data_vol_2:/config
+      - /home/pi/dkpi/homeassistant_docker_data_vol:/config
+      # - /home/pi/homeassistant_docker_data_vol:/config
+      # - /home/pi/homeassistant_docker_data_vol_2:/config
+      # - /home/pi/homeassistant_docker_data_vol_2:/config
       - /etc/localtime:/etc/localtime:ro
       - /run/dbus:/run/dbus:ro
     restart: unless-stopped
@@ -12,3 +15,109 @@ services:
     network_mode: host
     devices:
       - /dev/ttyUSB1:/dev/ttyUSB1
+    depends_on:
+      - mariadb
+      - influxdb
+      - mosquitto
+  portainer:
+    container_name: portainer
+    image: portainer/portainer-ce:latest
+    restart: unless-stopped
+    ports:
+      - "9000:9000/tcp"
+      - "9443:9443/tcp"
+    environment:
+      - TZ=America/Denver
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /home/pi/dkpi/portainer/data:/data
+      # - /opt/portainer/data:/data
+  adminer:
+    container_name: adminer
+    image: adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080/tcp"
+    depends_on:
+      - mariadb
+  mariadb:
+    container_name: mariadb
+    image: mariadb
+    restart: unless-stopped
+    ports:
+      - "3306:3306/tcp"
+    environment:
+      - TZ=America/Denver
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_HA_DATABASE}
+      - MYSQL_USER=${MYSQL_HA_USER}
+      - MYSQL_PASSWORD=${MYSQL_HA_PASSWORD}
+    volumes:
+      - /home/pi/dkpi/mariadb/data:/var/lib/mysql
+      - /home/pi/dkpi/mariadb/config/:/etc/mysql/conf.d
+      # - /opt/mariadb/data:/var/lib/mysql
+      # - /opt/mariadb/config/:/etc/mysql/conf.d
+  influxdb:
+    container_name: influxdb
+    image: influxdb
+    restart: unless-stopped
+    ports:
+      - "8086:8086/tcp"   # So we can access the WebUI
+    environment:
+      - TZ=America/Denver
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUXDB_USER}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_PASSWORD}
+      - DOCKER_INFLUXDB_INIT_ORG=${INFLUXDB_ORG}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUXDB_BUCKET}
+    volumes:
+      - /home/pi/dkpi/influxdb/data:/var/lib/influxdb2
+      - /home/pi/dkpi/influxdb/config/:/etc/influxdb2
+      # - /opt/influxdb/data:/var/lib/influxdb2
+      # - /opt/influxdb/config/:/etc/influxdb2
+    ulimits:
+      nofile:
+        soft: 32768
+        hard: 32768
+  mosquitto:
+    container_name: mosquitto
+    image: eclipse-mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883/tcp"
+    environment:
+      - TZ=America/Denver
+    volumes:
+      - /home/pi/dkpi/mosquitto/config:/mosquitto/config
+      - /home/pi/dkpi/mosquitto/data:/mosquitto/data
+      - /home/pi/dkpi/mosquitto/log:/mosquitto/log
+      # - /opt/mosquitto/config:/mosquitto/config
+      # - /opt/mosquitto/data:/mosquitto/data
+      # - /opt/mosquitto/log:/mosquitto/log
+    stdin_open: true
+    tty: true
+  grafana:
+    container_name: grafana
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    user: "$UID:$GID"
+    network_mode: host
+    depends_on:
+      - influxdb
+    environment:
+      - GF_SECURITY_ADMIN_USER=grafana_user
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+    ports:
+      - "3000:3000"
+    volumes:
+      - /home/pi/dkpi/grafana:/var/lib/grafana
+      # - /opt/grafana/plugins:/var/lib/grafana/plugins
+      # - /home/pi/dkpi/grafana/plugins:/var/lib/grafana/plugins
+  # cloudflare-tunnel:
+  #   container_name: cloudflare-tunnel
+  #   image: cloudfare/cloudfared:latest
+  #   restart: unless-stopped
+  #   command: tunnel run
+  #   environment:
+  #     - TUNNEL_TOKEN=${CLOUDEFLARE_TUNNEL_TOKEN}
