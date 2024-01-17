@@ -97,6 +97,48 @@ services:
       # - /opt/mosquitto/log:/mosquitto/log
     stdin_open: true
     tty: true
+  nodered:
+    container_name: nodered
+    image: nodered/node-red
+    restart: unless-stopped
+    ports:
+      - "1880:1880/tcp"
+    environment:
+      - TZ=America/Denver
+    volumes:
+      - /home/pi/dkpi/nodered/data:/data
+    depends_on:
+      - homeassistant
+      - mosquitto
+  plex:
+    container_name: plex
+    image: linuxserver/plex
+    network_mode: host 
+    restart: unless-stopped
+    ports:
+      - "32400:32400/tcp"
+    environment:
+      - TZ=America/Denver
+    volumes:
+      - /home/pi/dkpi/plex/config:/config
+      - /home/pi/dkpi/plex/data:/data
+      - /home/pi/dkpi/plex/transcode:/transcode
+      - /home/pi/plex-media/:/plex-media
+  jellyfin:
+    image: jellyfin/jellyfin
+    container_name: jellyfin
+    environment:
+      # - PUID=1000
+      # - PGID=1000
+      # - UMASK=002
+      - TZ=America/Denver
+    volumes:
+      - /home/pi/dkpi/jellyfin/jellyfin_config:/config
+      - /home/pi/jellyfin-media:/data/media
+      # - /home/pi/dkpi/jellyfin/data/media:/data/media
+    ports:
+      - 8096:8096
+    restart: unless-stopped
   grafana:
     container_name: grafana
     image: grafana/grafana:latest
