@@ -3,6 +3,8 @@ services:
   homeassistant:
     container_name: homeassistant
     image: "ghcr.io/home-assistant/home-assistant:stable"
+    labels:
+      - com.centurylinklabs.watchtower.monitor-only="true"
     volumes:
       - /home/pi/dkpi/homeassistant_docker_data_vol:/config
       # - /home/pi/homeassistant_docker_data_vol:/config
@@ -19,6 +21,11 @@ services:
       - mariadb
       - influxdb
       - mosquitto
+  watchtower:
+    container_name: watchtower
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
   portainer:
     container_name: portainer
     image: portainer/portainer-ce:latest
@@ -33,6 +40,17 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - /home/pi/dkpi/portainer/data:/data
       # - /opt/portainer/data:/data
+  cloudflare-tunnel:
+    container_name: cloudflare-tunnel
+    image: cloudflare/cloudflared
+    restart: unless-stopped
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDEFLARE_TUNNEL_TOKEN}
+    volumes:
+      - /home/pi/dkpi/cloudflare-tunnel/config:/etc/cloudflared
+    networks:
+      - cloudflared
   adminer:
     container_name: adminer
     image: adminer
@@ -97,6 +115,19 @@ services:
       # - /opt/mosquitto/log:/mosquitto/log
     stdin_open: true
     tty: true
+  zigbee2mqtt:
+    container_name: zigbee2mqtt
+    image: koenkk/zigbee2mqtt
+    restart: unless-stopped
+    ports:
+      - "8099:8099/tcp"
+    environment:
+      - TZ=America/Denver
+    volumes:
+      - /home/pi/dkpi/zigbee2mqtt/data:/app/data
+      - /run/udev:/run/udev:ro
+    devices:
+      - /dev/serial/by-id/usb-ITEAD_SONOFF_Zigbee_3.0_USB_Dongle_Plus_V2_20231122111634-if00:/dev/ttyACM0
   nodered:
     container_name: nodered
     image: nodered/node-red
@@ -110,35 +141,31 @@ services:
     depends_on:
       - homeassistant
       - mosquitto
-  plex:
-    container_name: plex
-    image: linuxserver/plex
-    network_mode: host 
+  hass-conf:
+    container_name: hassconf
+    image: causticlab/hass-configurator-docker
     restart: unless-stopped
     ports:
-      - "32400:32400/tcp"
-    environment:
-      - TZ=America/Denver
+      - "3218:3218/tcp"
     volumes:
-      - /home/pi/dkpi/plex/config:/config
-      - /home/pi/dkpi/plex/data:/data
-      - /home/pi/dkpi/plex/transcode:/transcode
-      - /home/pi/plex-media/:/plex-media
-  jellyfin:
-    image: jellyfin/jellyfin
-    container_name: jellyfin
-    environment:
-      # - PUID=1000
-      # - PGID=1000
-      # - UMASK=002
-      - TZ=America/Denver
-    volumes:
-      - /home/pi/dkpi/jellyfin/jellyfin_config:/config
-      - /home/pi/jellyfin-media:/data/media
-      # - /home/pi/dkpi/jellyfin/data/media:/data/media
-    ports:
-      - 8096:8096
-    restart: unless-stopped
+      - /home/pi/dkpi/hassconf/config:/config
+      - /home/pi/dkpi/homeassistant_docker_data_vol:/hass-config
+    depends_on:
+      - homeassistant
+  # plex:
+  #   container_name: plex
+  #   image: linuxserver/plex
+  #   network_mode: host 
+  #   restart: unless-stopped
+  #   ports:
+  #     - "32400:32400/tcp"
+  #   environment:
+  #     - TZ=America/Denver
+  #   volumes:
+  #     - /home/pi/dkpi/plex/config:/config
+  #     - /home/pi/dkpi/plex/data:/data
+  #     - /home/pi/dkpi/plex/transcode:/transcode
+  #     - /home/pi/plex-media/:/plex-media
   grafana:
     container_name: grafana
     image: grafana/grafana:latest
@@ -156,10 +183,6 @@ services:
       - /home/pi/dkpi/grafana:/var/lib/grafana
       # - /opt/grafana/plugins:/var/lib/grafana/plugins
       # - /home/pi/dkpi/grafana/plugins:/var/lib/grafana/plugins
-  # cloudflare-tunnel:
-  #   container_name: cloudflare-tunnel
-  #   image: cloudfare/cloudfared:latest
-  #   restart: unless-stopped
-  #   command: tunnel run
-  #   environment:
-  #     - TUNNEL_TOKEN=${CLOUDEFLARE_TUNNEL_TOKEN}
+networks:
+  cloudflared:
+    name: cloudflared

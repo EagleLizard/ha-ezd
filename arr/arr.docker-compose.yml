@@ -1,0 +1,142 @@
+version: '3'
+services:
+  jellyfin:
+    image: jellyfin/jellyfin
+    container_name: jellyfin
+    environment:
+      # - PUID=1000
+      # - PGID=1000
+      # - UMASK=002
+      - TZ=America/Denver
+    volumes:
+      - /home/pi/dkpi/jellyfin/jellyfin_config:/config
+      - /home/pi/jellyfin/data/media:/data/media
+      # - /home/pi/dkpi/jellyfin/data/media:/data/media
+    ports:
+      - 8096:8096
+    restart: unless-stopped
+  sonarr:
+    image: ghcr.io/hotio/sonarr:latest
+    container_name: sonarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=America/Denver
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /home/pi/dkpi/sonarr/sonarr_config:/config
+      - /home/pi/jellyfin/data:/data
+      # - ./sonarr_config:/config
+      # - /host/path/data:/data
+    ports:
+      - 8989:8989
+    logging:
+      driver: json-file
+    restart: unless-stopped
+
+  radarr:
+    image: ghcr.io/hotio/radarr:latest
+    container_name: radarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=America/Denver
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /home/pi/dkpi/radarr/radarr_config:/config
+      - /home/pi/jellyfin/data:/data
+      # - ./radarr_config:/config
+      # - /host/path/data:/data
+    ports:
+      - 7878:7878
+    logging:
+      driver: json-file
+    restart: unless-stopped
+  bazarr:
+    image: ghcr.io/hotio/bazarr
+    container_name: bazarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=America/Denver
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /home/pi/dkpi/bazarr/bazarr_config:/config
+      - /home/pi/jellyfin/data:/data
+    ports:
+      - 6767:6767
+    restart: unless-stopped
+  jellyseerr:
+    image: ghcr.io/hotio/jellyseerr
+    container_name: jellyseerr
+    # network_mode: host
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=America/Denver
+      - LOG_LEVEL=debug
+    ports:
+      - 5055:5055
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /home/pi/dkpi/jellyseerr/jellyseerr_config:/config
+    restart: unless-stopped
+    depends_on:
+      - radarr
+      - sonarr
+  prowlarr:
+    image: ghcr.io/hotio/prowlarr
+    container_name: prowlarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=America/Denver
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /home/pi/dkpi/prowlarr/prowlarr_config:/config
+    ports:
+      - 9696:9696
+    restart: unless-stopped
+  transmission:
+    image: haugene/transmission-openvpn
+    container_name: transmission
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=America/Denver
+      - OPENVPN_PROVIDER=NORDVPN
+      - NORDVPN_COUNTRY=US
+      - NORDVPN_CATEGORY=legacy_standard
+      - OPENVPN_USERNAME=${OPEN_VPN_USERNAME}
+      - OPENVPN_PASSWORD=${OPEN_VPN_PASSWORD}
+      - OPENVPN_OPTS=--inactive 3600 --ping 10 --ping-exit 60
+      - LOCAL_NETWORK=192.168.4.0/24
+      - TRANSMISSION_RPC_AUTHENTICATION_REQUIRED=true
+      - TRANSMISSION_RPC_ENABLED=true
+      - TRANSMISSION_RPC_USERNAME=${TRANSMISSION_RPC_USERNAME}
+      - TRANSMISSION_RPC_PASSWORD=${TRANSMISSION_RPC_PASSWORD}
+      - TRANSMISSION_DOWNLOAD_DIR=/data/torrents
+      - HEALTH_CHECK_HOST=github.com
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /home/pi/dkpi/transmission/transmission_config:/config
+      - /home/pi/jellyfin/data/torrents:/data/torrents
+    ports:
+      - 9091:9091
+      - 51413:51413
+      - 51413:51413/udp
+    restart: unless-stopped
