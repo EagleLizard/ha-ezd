@@ -5,6 +5,8 @@ services:
     image: "ghcr.io/home-assistant/home-assistant:stable"
     labels:
       - com.centurylinklabs.watchtower.monitor-only="true"
+    environment:
+      - DISABLE_JEMALLOC=true
     volumes:
       - /home/pi/dkpi/homeassistant_docker_data_vol:/config
       # - /home/pi/homeassistant_docker_data_vol:/config
@@ -49,8 +51,8 @@ services:
       - TUNNEL_TOKEN=${CLOUDEFLARE_TUNNEL_TOKEN}
     volumes:
       - /home/pi/dkpi/cloudflare-tunnel/config:/etc/cloudflared
-    networks:
-      - cloudflared
+    # networks:
+    #   - cloudflared
   adminer:
     container_name: adminer
     image: adminer
@@ -118,6 +120,7 @@ services:
   zigbee2mqtt:
     container_name: zigbee2mqtt
     image: koenkk/zigbee2mqtt
+    # image: koenkk/zigbee2mqtt:1.36.0 # 1.36.1 broke sengled E21-N1EA x/y/rgb colors
     restart: unless-stopped
     ports:
       - "8099:8099/tcp"
@@ -128,6 +131,16 @@ services:
       - /run/udev:/run/udev:ro
     devices:
       - /dev/serial/by-id/usb-ITEAD_SONOFF_Zigbee_3.0_USB_Dongle_Plus_V2_20231122111634-if00:/dev/ttyACM0
+  # matter-server:
+  #   container_name: matter-server
+  #   image: ghcr.io/home-assistant-libs/python-matter-server:stable
+  #   restart: unless-stopped
+  #   security_opt:
+  #     - apparmor=unconfined
+  #   volumes:
+  #     - /home/pi/dkpi/matter-server:/data
+  #     - /run/dbus:/run/dbus:ro
+  #   network_mode: host
   nodered:
     container_name: nodered
     image: nodered/node-red
@@ -155,7 +168,7 @@ services:
   # plex:
   #   container_name: plex
   #   image: linuxserver/plex
-  #   network_mode: host 
+  #   network_mode: host
   #   restart: unless-stopped
   #   ports:
   #     - "32400:32400/tcp"
@@ -177,6 +190,7 @@ services:
     environment:
       - GF_SECURITY_ADMIN_USER=grafana_user
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_SECURITY_ALLOW_EMBEDDING=true
     ports:
       - "3000:3000"
     volumes:
